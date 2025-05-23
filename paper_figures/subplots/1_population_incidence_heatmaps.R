@@ -82,3 +82,17 @@ p_mel <- p %+%
     breaks = c(0.01, 0.15, 0.3, 0.45)
   )
 pop_incidence_heatmaps <- p_car / p_mel
+
+# artful minis for fig 5
+mini <- ggplot(mapping = aes(x, y, fill = value)) +
+  geom_raster(aes(alpha = value), data = bg, fill = 'grey70', show.legend = FALSE) +
+  geom_raster(show.legend = FALSE) +
+  scale_y_reverse() +
+  coord_fixed(expand = FALSE) +
+  theme_void(base_size = 7, base_family = 'Arial')
+
+mini %+% filter(car_heatmap_data, value > 0.01) +
+  scale_fill_gradient(low = 'orange', high = 'white')
+
+mini %+% filter(mel_heatmap_data, value > 0.01) +
+  scale_fill_gradient(low = 'black', high = 'white')

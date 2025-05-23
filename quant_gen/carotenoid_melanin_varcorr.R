@@ -65,7 +65,7 @@ if (FALSE) { # run interactively
     brms::posterior_summary(var_wide$h2_x)
     brms::posterior_summary(var_wide$h2_y)
 
-    p1 <- ggplot(var, aes(.variable, .value ^ 2)) +
+    p1 <- ggplot(var, aes(.variable, .value)) +
       stat_ccdfinterval(slab_type = 'ccdf') +
       scale_x_discrete(
         limits = c('auto', 'X', 'Y', 'maternal', 'tank', 'env', 'asymmetry', 'sigma'),

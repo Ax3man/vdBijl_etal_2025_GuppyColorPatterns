@@ -1,4 +1,6 @@
 library(tidyverse)
+library(VariantAnnotation)
+library(gggenes)
 source('sequencing/gwas/peak_viz/panel_functions/make_gene_panel.R')
 
 ann <- import('sequencing/GCF_000633615.1_Guppy_female_1.0_MT_genomic.gff.gz') %>%
@@ -11,8 +13,8 @@ exons <- ann %>% filter(type == 'exon') %>%
 
 
 gwas <- bind_rows(
-  'black pattern' = data.table::fread('sequencing/gwas/gemma_output/mel_PIE.assoc.txt'),
-  'orange pattern' = data.table::fread('sequencing/gwas/gemma_output/car_PIE.assoc.txt'),
+  'black pattern' = data.table::fread('sequencing/gwas_sommer/sommer_output/female_mel_PIE.csv.gz'),
+  'orange pattern' = data.table::fread('sequencing/gwas_sommer/sommer_output/female_car_PIE.csv.gz'),
   .id = 'color'
 )
 
@@ -29,7 +31,7 @@ ROI <- tribble(
 
 map(1:nrow(ROI), \(i) {
   roi <- ROI[i, ]
-  d <- semi_join(gwas, roi, join_by(chr, between(ps, start_wide, end_wide)))
+  d <- semi_join(gwas, roi, join_by(chr, between(pos, start_wide, end_wide)))
   g <- semi_join(genes, roi, join_by(seqnames == chr, overlaps(start, end, start_wide, end_wide))) %>%
     mutate(id = row_number())
   e <- semi_join(exons, roi, join_by(seqnames == chr, overlaps(start, end, start_wide, end_wide))) %>%
@@ -48,7 +50,7 @@ map(1:nrow(ROI), \(i) {
        aes(x = (start + end) / 2, y = 5 - id * 0.4, label = gene),
        g, size = 3
     ) +
-    geom_point(aes(ps, -log10(p_SHet))) +
+    geom_point(aes(pos, -log10(p_SHet))) +
     facet_grid(cols = vars(color)) +
     coord_cartesian(xlim = c(roi$start_wide, roi$end_wide)) +
     scale_x_continuous(labels = scales::label_comma(scale = 1e-3)) +

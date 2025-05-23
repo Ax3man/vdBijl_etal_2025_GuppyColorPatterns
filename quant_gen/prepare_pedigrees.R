@@ -46,11 +46,26 @@ colnames(pedA_inv) <- rownames(pedA_inv)
 A_inv <- as.matrix(pedA_inv)
 
 # Make the additive relationship matrix for the X-chromosome
-S <- makeS(as.data.frame(dplyr::select(ped_df, animal, dam, sire, sex)), 'M', 'ngdc', TRUE)
+suppressWarnings({
+  S <- makeS(as.data.frame(dplyr::select(ped_df, animal, dam, sire, sex)), 'M', 'ngdc', TRUE)
+})
 pedX <- S$S
 colnames(pedX) <- rownames(pedX)
 X <- as.matrix(pedX)
 pedX_inv <- S$Sinv
 colnames(pedX_inv) <- rownames(pedX_inv)
 X_inv <- as.matrix(pedX_inv)
+
+# Make the additive relationship matrix for the Y.
+makeY <- function(ped_df) {
+  df <- ped_df |>
+    filter(sex != 'F') |>
+    rename(fish_id = animal) |>
+    add_patriline(ped_df)
+  Y <- outer(df$patriline, df$patriline, FUN = function(x, y) as.numeric(x == y))
+  rownames(Y) <- colnames(Y) <- df$fish_id
+
+  return(Y)
+}
+Y <- makeY(ped_df)
 

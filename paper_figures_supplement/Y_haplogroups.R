@@ -1,48 +1,23 @@
-library(VariantAnnotation)
 library(irlba)
+library(tidyverse)
 library(ggtext)
 
-vcf_file <- "sequencing/gwas/filtered.vcf.gz"
+source('sequencing/genomics_helpers.R')
+source('sequencing/gwas_sommer/gwas_sommer_tools.R')
 
-g <- data.table::fread('sequencing/gwas/snp_inheritance/gwas_snp_inheritance/car_PIE.csv') %>%
-  group_by(chr, start, end, alt) %>%
-  slice_max(AIC_weight) %>%
-  filter(AIC_weight > 0.8, source == 'Y') %>%
-  ungroup()
+# Import the VCF file into a GDS file
+vcf_file <- "sequencing/gwas_sommer/filtered2.vcf.gz"
+
+g <- prep_sommer_gwas_table('car_PIE', pval_column = 'p_SHet') |> filter(significant, source == 'Y')
 
 if (FALSE) { # only run interactively, otherwise load from disk
-  regions <- GRanges(
-    seqnames = g$chr,
-    ranges = IRanges(start = g$start, end = g$end)
-  )
-  geno <- readVcfAsVRanges(vcf_file, param = ScanVcfParam(which = regions)) %>%
-    as.data.frame() %>%
-    filter(
-      !(sampleNames %in% c('NS.2125.002.IDT_i7_111---IDT_i5_111.280', 'NS.2145.001.IDT_i7_89---IDT_i5_89.355'))
-    )
+  geno <- load_vcf(region = str_glue_data(g, '{chr}:{pos}-{pos}'))
 
-  geno_mat <- geno %>%
-    semi_join(g, join_by(seqnames == chr, start, end, alt)) %>%
-    mutate(
-      dose = case_when(
-        GT == '0/0' ~ 0,
-        GT == '0/1' ~ 1,
-        GT == '1/1' ~ 2
-      ),
-      snp_id = paste(seqnames, start, end, alt, sep = '_')
-    ) %>%
-    dplyr::select(sampleNames, snp_id, dose) %>%
-    distinct() %>%
-    pivot_wider(names_from = snp_id, values_from = dose) %>%
-    as.data.frame() %>%
-    column_to_rownames('sampleNames') %>%
-    as.matrix()
-
-  pca <- prcomp_irlba(geno_mat, n = 20, center = TRUE, scale. = TRUE)
-  rownames(pca$x) <- rownames(geno_mat)
-  write_rds(pca, 'sequencing/gwas/Y_haplotype_PCA.rds', compress = 'gz')
+  pca <- prcomp_irlba(geno$mat, n = 20, center = TRUE, scale. = FALSE)
+  rownames(pca$x) <- rownames(geno$mat)
+  write_rds(pca, 'sequencing/gwas_sommer/Y_haplotype_PCA.rds', compress = 'gz')
 }
-pca <- read_rds('sequencing/gwas/Y_haplotype_PCA.rds')
+pca <- read_rds('sequencing/gwas_sommer/Y_haplotype_PCA.rds')
 summary(pca)
 
 # scree plot
@@ -57,7 +32,7 @@ scree <- summary(pca)$importance %>%
 # hclust
 dist_matrix <- dist(pca$x) # distance matrix from the first two PCs
 hc <- hclust(dist_matrix)
-#plot(hc) # to visualize the dendrogram
+plot(hc, FALSE) # to visualize the dendrogram
 
 ##
 source('quant_gen/prepare_pedigrees.R')
@@ -103,7 +78,8 @@ biplot <- ggplot(ind_df, aes(PC1, PC2, color = hclust_groups)) +
   geom_point() + theme_classic() + coord_fixed() +
   scale_color_brewer(palette = "Set1", labels = paste0('Y', 1:4)) +
   labs(
-    x = 'PC1 (29%)', y = 'PC2 (23%)',
+    x = str_glue('PC1 ({scales::percent_format()(summary(pca)$importance[2, 1])})'),
+    y = str_glue('PC2 ({scales::percent_format()(summary(pca)$importance[2, 2])})'),
     color = 'Assigned\nY-haplogroup',
     #subtitle = 'PCA on SNPs associated w/ orange pattern and Y-like inheritance'
   ) +

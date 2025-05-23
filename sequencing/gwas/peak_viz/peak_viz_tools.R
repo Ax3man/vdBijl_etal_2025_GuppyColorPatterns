@@ -18,17 +18,31 @@ get_gwas_results <- function(
 }
 
 get_genotypes <- function(vcf, chr, range) {
+  message('Consider using sequencing/genomics_helpers/load_vcf instead.')
+
   if (chr %in% as.character(1:23)) chr <- paste0('chr', chr)
-  require(VariantAnnotation)
+  #require(VariantAnnotation)
   if (length(range) == 1) {
-    regions <- GRanges(seqnames = chr, ranges = IRanges(start = range, width = 1))
+    regions <- GenomicRanges::GRanges(
+      seqnames = chr,
+      ranges = IRanges::IRanges(start = range, width = 1)
+    )
   } else {
-    regions <- GRanges(seqnames = chr, ranges = IRanges(start = range[1], width = diff(range)))
+    regions <- GenomicRanges::GRanges(
+      seqnames = chr,
+      ranges = IRanges::IRanges(start = range[1], width = diff(range))
+    )
   }
-  readVcfAsVRanges(vcf, param = ScanVcfParam(which = regions)) %>%
+  VariantAnnotation::readVcfAsVRanges(
+    vcf,
+    param = VariantAnnotation::ScanVcfParam(which = regions)
+  ) %>%
     as.data.frame() %>%
     filter(
-      !(sampleNames %in% c('NS.2125.002.IDT_i7_111---IDT_i5_111.280', 'NS.2145.001.IDT_i7_89---IDT_i5_89.355'))
+      !(sampleNames %in% c(
+        'NS.2125.002.IDT_i7_111---IDT_i5_111.280',
+        'NS.2145.001.IDT_i7_89---IDT_i5_89.355'
+      ))
     )
 }
 
@@ -67,7 +81,7 @@ get_phenotypes2 <- function(type = 'present_10') {
     read_rds('ornament_analysis/car_ornaments.rds'),
     read_rds('ornament_analysis/mel_ornaments.rds')
   ) %>%
-    pivot_wider(id_cols = unique_id, names_from = 'ornament', values_from = type) %>%
+    pivot_wider(id_cols = unique_id, names_from = 'ornament', values_from = all_of(type)) %>%
     left_join(
       data.table::fread('photo_database.csv') %>%
         dplyr::select(fish_id, unique_id, facing_direction, car_perc, mel_perc_v2),
@@ -158,31 +172,6 @@ get_region_coverage <- function(chr, pos, viz_range, reference = 'female') {
     pivot_longer(-(chr:window_end), names_to = 'sample_name', values_to = 'coverage') %>%
     left_join(get_mean_coverage(), join_by(sample_name)) %>%
     mutate(rel_coverage = coverage / mean_coverage)
-}
-
-get_GRM <- function(reference = 'female') {
-  require(VariantAnnotation)
-  if (reference == 'female') {
-    vcf <- 'sequencing/gwas/filtered.vcf.gz'
-  } else {
-    vcf <- 'sequencing/male_reference_gwas/male_filtered.vcf.gz'
-  }
-
-  sample_names <- readVcf(vcf, param = ScanVcfParam(which = GRanges("NC_024331.1", IRanges(24115677)))) %>%
-    colData() %>% rownames()
-
-  if (reference == 'female') {
-    grm_file <- 'sequencing/gwas/gemma_output/for_kinship_comparison.cXX.txt'
-  } else {
-    grm_file <- 'sequencing/male_reference_gwas/gemma_output/for_kinship_comparison.cXX.txt'
-  }
-  GRM <- data.table::fread(grm_file) %>%
-    as.data.frame() %>%
-    `dimnames<-`(list(sample_names, sample_names)) %>%
-    as.matrix()
-
-  to_drop <- c('NS.2125.002.IDT_i7_111---IDT_i5_111.280', 'NS.2145.001.IDT_i7_89---IDT_i5_89.355')
-  GRM[!(sample_names %in% to_drop), !(sample_names %in% to_drop)]
 }
 
 # yuying parents

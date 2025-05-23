@@ -33,7 +33,6 @@ gplots::heatmap.2(
 )
 
 # Get the order of samples from the VCF, since that's the order GEMMA uses
-#
 sample_names <- readVcf(vcf_file, param = ScanVcfParam(which = GRanges("NC_024331.1", IRanges(24115677)))) %>%
   colData() %>% rownames()
 

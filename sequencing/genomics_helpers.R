@@ -1,3 +1,101 @@
+load_vcf <- function(
+    reference = 'female', region = '', min_maf = NULL, format = 'GT', vartype = 'snps', pass = TRUE,
+    drop_invariable = FALSE
+) {
+  if (reference == 'female') {
+    #message("Loading extra filtered vcf...")
+    vcf <- 'sequencing/gwas_sommer/filtered2.vcf.gz'
+  } else {
+    #message("Loading extra filtered vcf...")
+    vcf <- 'sequencing/gwas_sommer/male_filtered2.vcf.gz'
+  }
+
+  load_vcf_region <- function(r, min_maf) {
+    g <- vcfppR::vcftable(
+      vcf,
+      region = r,
+      samples = '^NS.2125.002.IDT_i7_111---IDT_i5_111.280,NS.2145.001.IDT_i7_89---IDT_i5_89.355',
+      vartype = vartype,
+      format = format,
+      pass = pass
+    )
+    if (format == 'GT') {
+      names(g)[names(g) == 'gt'] <- 'GT'
+      g[[format]] <- g[[format]] - 1
+    } else {
+      if (!is.null(min_maf) || drop_invariable) {
+        gt <- vcfppR::vcftable(
+          vcf,
+          region = r,
+          samples = '^NS.2125.002.IDT_i7_111---IDT_i5_111.280,NS.2145.001.IDT_i7_89---IDT_i5_89.355',
+          vartype = vartype,
+          format = 'GT',
+          pass = pass
+        )
+        AF <- Rfast::rowmeans(gt$gt) / 2
+        Vars <- Rfast::rowVars(gt$gt)
+        if (!is.null(min_maf)) excl <- which(AF < min_maf | AF > (1 - min_maf))
+        if (drop_invariable) excl <- which(Vars == 0)
+        if (!is.null(min_maf) && drop_invariable) excl <- which(AF < min_maf | AF > (1 - min_maf) | Vars == 0)
+        g[-1] <- lapply(g[-1], \(x) {
+          if (length(dim(x)) == 0) return(x[-excl])
+          if (length(dim(x)) == 2) return(x[-excl, ])
+        })
+      }
+    }
+
+    if (!is.matrix(g[[format]])) g[[format]] <- matrix(g[[format]], nrow = 1)
+
+    if ((!is.null(min_maf) || drop_invariable) && format == 'GT') {
+      AF <- Rfast::rowmeans(g$GT + 1) / 2
+      Vars <- Rfast::rowVars(g$GT)
+      if (!is.null(min_maf)) excl <- which(AF < min_maf | AF > (1 - min_maf))
+      if (drop_invariable) excl <- which(Vars == 0)
+      if (!is.null(min_maf) && drop_invariable) excl <- which(AF < min_maf | AF > (1 - min_maf) | Vars == 0)
+      df <- as.data.frame(g[c('chr', 'pos', 'ref', 'alt')])[-excl, ]
+      mat <- g[[format]][-excl, ] |> magrittr::set_colnames(g$samples) |> t()
+    } else {
+      df <- as.data.frame(g[c('chr', 'pos', 'ref', 'alt')])
+      mat <- g[[format]] |> magrittr::set_colnames(g$samples) |> t()
+    }
+    return(list(df = df, mat = mat))
+  }
+
+  if (length(region) == 1) return(load_vcf_region(region, min_maf = min_maf))
+
+  # support supplying a vector of regions
+  l <- lapply(region, load_vcf_region, min_maf = min_maf) |> transpose()
+    return(
+    list(
+      df = list_rbind(l$df),
+      mat = do.call(cbind, l$mat)
+    )
+  )
+}
+
+get_GRM <- function(reference = 'female') {
+  vcf <- 'sequencing/gwas/filtered.vcf.gz'
+
+  # read a random region of the VCF to get the sample names encoded in the VCF
+  sample_names <- VariantAnnotation::readVcf(
+    vcf,
+    param = VariantAnnotation::ScanVcfParam(
+      which = GenomicRanges::GRanges("NC_024331.1", IRanges::IRanges(24115677))
+    )
+  ) %>%
+    SummarizedExperiment::colData() %>% rownames()
+
+  grm_file <- 'sequencing/gwas/gemma_output/for_kinship_comparison.cXX.txt'
+
+  GRM <- data.table::fread(grm_file) %>%
+    as.data.frame() %>%
+    `dimnames<-`(list(sample_names, sample_names)) %>%
+    as.matrix()
+
+  to_drop <- c('NS.2125.002.IDT_i7_111---IDT_i5_111.280', 'NS.2145.001.IDT_i7_89---IDT_i5_89.355')
+  GRM[!(sample_names %in% to_drop), !(sample_names %in% to_drop)]
+}
+
 prep_gwas_table <- function(
     trait, produce_plots = FALSE, pval_column, fdr_level = 0.05, calc_q = TRUE, reference = 'female',
     # whether to apply the Fraser remapping of LG12 coordinates, don't use if e.g. matching to vcf

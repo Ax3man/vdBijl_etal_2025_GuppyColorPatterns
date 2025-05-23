@@ -83,7 +83,7 @@ P_mel_pixel_h2 <- posts_medians %>%
     strip.text.y.left = element_text(angle = 0),
     legend.position = 'bottom',
     legend.title = element_text(vjust = 1),
-    legend.key.width = grid::unit(40, "points"),
+    legend.key.width = grid::unit(25, "points"),
     legend.title.align = 1,
     legend.direction = 'horizontal',
     legend.box.just = 'right',

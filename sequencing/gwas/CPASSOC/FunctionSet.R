@@ -26,19 +26,27 @@ solar_cormat <- function(sol) {
 combine_assoc <- function(files) {
   stopifnot(length(files) > 1)
   d <- data.table::fread(files[1], data.table = FALSE)
-  d$Z1 <- d$beta / d$se
-  d <- dplyr::select(d, chr:af, Z1, beta1 = beta)
+  # detect if the standard errors are in column "se", or "beta.se"
+  if ('beta.se' %in% names(d)) {
+    se_name <- 'beta.se'
+    d$Z1 <- d$beta / d[[se_name]]
+    d <- dplyr::select(d, chr:alt, Z1, beta1 = beta)
+  } else {
+    se_name <- 'se'
+    d$Z1 <- d$beta / d[[se_name]]
+    d <- dplyr::select(d, chr:af, Z1, beta1 = beta)
+  }
 
   Zs <- map_dfc(2:length(files), \(i) {
     D <- data.table::fread(files[i], data.table = FALSE)
-    D$Z <- D$beta / D$se
+    D$Z <- D$beta / D[[se_name]]
     D <- D[c('Z', 'beta')]
     names(D) <- paste0(c('Z', 'beta'), i)
     return(D)
   })
 
   bind_cols(d, Zs) %>%
-    dplyr::select(chr:af, starts_with('Z'), starts_with('beta')) %>%
+    dplyr::relocate(starts_with('Z'), starts_with('beta'), .after = last_col()) %>%
     as_tibble()
 }
 
@@ -61,7 +69,7 @@ SHom <- cmpfun(Non_Trucated_TestScore);
 
 Trucated_TestScore <- function(
     X, SampleSize, CorrMatrix, correct = 1, startCutoff = 0, endCutoff = 1, CutoffStep = 0.05,
-    isAllpossible = T
+    isAllpossible = TRUE
 ) {
 	N <- nrow(X)
 
@@ -70,6 +78,7 @@ Trucated_TestScore <- function(
 	W <- Wi / sumW
 
 	calc_TTT <- function(x) {
+	  if (isTRUE(all.equal(var(x), 0))) return(0)
 	  TTT = -1
 
 	  if (isAllpossible == T ) {

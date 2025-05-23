@@ -10,7 +10,7 @@ pixsets <- list.files('ornament_analysis/ornament_images', 'mel_', full.names = 
   map(\(.x) load.image(.x) %>% channel(4) %>% as.data.frame) %>%
   setNames(paste0('mel_', seq_along(.))) %>%
   bind_rows(.id = 'ornament') %>%
-  mutate(ornament_lab = fct_relabel(ornament, \(l) str_replace(l, 'mel_', 'M')))
+  mutate(ornament_lab = fct_relabel(ornament, \(l) str_replace(l, 'mel_', 'B')))
 
 P_mel_orn_img <- ggplot(mapping = aes(x, y, alpha = value)) +
   geom_raster(data = bg, fill = 'grey60') +

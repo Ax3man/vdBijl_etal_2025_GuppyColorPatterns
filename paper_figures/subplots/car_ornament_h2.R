@@ -86,7 +86,7 @@ P_car_orn_h2 <- variances %>%
   geom_hline(yintercept = 3.5, color = 'grey', linewidth = 0.1) +
   stat_ccdfinterval(
     aes(slab_alpha = after_stat(f)),
-    thickness = 1, fill_type = "gradient", geom = 'slab', #fill = 'grey20',
+    thickness = 1, fill_type = "segments", geom = 'slab', #fill = 'grey20',
     position = position_dodge(width = 0.7), height = 0.75
   ) +
   ggdist::stat_pointinterval(
