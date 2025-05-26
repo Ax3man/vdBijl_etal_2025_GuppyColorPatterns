@@ -1,4 +1,6 @@
-# vdBijl_etal_2024_GuppyColorPatterns
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.15499676.svg)](https://doi.org/10.5281/zenodo.15499676)
+
+# vdBijl_etal_2025_GuppyColorPatterns
 
 This is the code repository that goes with the following [preprint](https://doi.org/10.1101/2023.09.29.560175):
 
